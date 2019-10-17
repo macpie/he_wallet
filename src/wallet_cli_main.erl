@@ -86,6 +86,16 @@ main(["balance"=Cmd | Args]) ->
 main(["version"=Cmd | Args]) ->
     OptSpecs = help_opt_specs(),
     handle_cmd(OptSpecs, Cmd, Args, fun cmd_version/1);
+main(["oui"=Cmd | Args]) ->
+    AppDir = filename:dirname(filename:dirname(code:where_is_file("wallet"))),
+    os:putenv("NIF_PATH", AppDir),
+    OptSpecs =
+        [
+         {address, $a, "address", string,           "Address to link"},
+         {file, $f, "file", {string, "wallet.key"}, "Wallet file to load"},
+         {help, $h, "help", undefined,              "Print this help text"}
+        ],
+    handle_cmd(OptSpecs, Cmd, Args, fun cmd_oui_config/1, fun cmd_oui/1);
 main(_) ->
     OptSpecs =
         [
@@ -94,7 +104,8 @@ main(_) ->
          {convert,undefined, undefined, undefined, "Convert a wallet to a newer or different format"},
          {verify, undefined, undefined, undefined, "Verify an ecnrypted wallet"},
          {info,   undefined, undefined, undefined, "Get public wallet address"},
-         {balance,undefined, undefined, undefined, "Get balance for a wallet or a given address"}
+         {balance,undefined, undefined, undefined, "Get balance for a wallet or a given address"},
+         {oui    ,undefined, undefined, undefined, "Create and sign an OUI transation"}
         ],
     usage("", OptSpecs).
 
@@ -356,6 +367,41 @@ cmd_balance(Opts) ->
                           end, Keys)
     end.
 
+%%
+%% Transactions
+%%
+
+cmd_oui_config(Opts) ->
+    Password = string:strip(string:strip(io:get_line("Passsword: "), right, $\n), right, $\r),
+    {ok, [{password, Password} | Opts]}.
+
+cmd_oui(Opts) ->
+    Password = proplists:get_value(password, Opts),
+    Addresses = [A || {_, A} <- lists:filter(fun(O)-> element(1, O) == address end, Opts)],
+    case load_keys(Opts) of
+        {error, Filename, Error} ->
+            io:format("Failed to read keys ~p: ~p~n", [Filename, Error]),
+            halt(1);
+        {ok, Keys} ->
+            {_, EncKeys} = lists:unzip(Keys),
+            case decrypt_keys(EncKeys, Password) of
+                {error, {not_enough_shares, S, K}} ->
+                    io:format("not enough keyshares; have ~p, need ~b~n", [S, K]),
+                    halt(1);
+                {error, mismatched_shares} ->
+                    io:format("Not all key shares are congruent with each other\n"),
+                    halt(1);
+                {ok, Key} ->
+                    PubKeyBin = libp2p_crypto:pubkey_to_b58(pubkey(Key)),
+                    SigFun = sigfun(Key),
+                    EncodedTxn = txn:create_oui_txn(PubKeyBin, SigFun, Addresses),
+                    io:format("#############################################~n"),
+                    io:format("Owner will be: ~p~n", [PubKeyBin]),
+                    io:format("Router addresses assgined: ~p~n", [Addresses]),
+                    io:format("Base64 encoded OUI transation: ~s~n", [erlang:binary_to_list(base64:encode(EncodedTxn))])
+            end
+    end.
+
 
 %%
 %% Utilities
@@ -410,6 +456,11 @@ key_version(#enc_sharded_key{version=Version}) ->
     {sharded, Version};
 key_version(#sharded_key{version=Version}) ->
     {sharded, Version}.
+
+sigfun(#basic_key{keymap=#{secret := PrivKey}}) ->
+    libp2p_crypto:mk_sig_fun(PrivKey);
+sigfun(#sharded_key{keymap=#{secret := PrivKey}}) ->
+    libp2p_crypto:mk_sig_fun(PrivKey).
 
 pubkey(#basic_key{ keymap=#{ public := PubKey}}) ->
     PubKey;
@@ -601,7 +652,6 @@ decrypt_keys([HeadShare = #enc_sharded_key{version=Version,
         false ->
             {error, mismatched_shares}
     end.
-
 
 -spec load_keys(Opts::list())
                -> {ok, [{Filename::string(), enc_key()}]} | {error, Filename::string(), term()}.

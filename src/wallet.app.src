@@ -27,7 +27,8 @@
                   inets,
                   ssl,
                   pbkdf2,
-                  erlang_sss
+                  erlang_sss,
+                  helium_proto
                  ]},
   {env,[]},
 
