@@ -548,10 +548,9 @@ enc_key_from_bin(_) ->
     {error, invalid_binary}.
 
 
--spec decrypt_keys([enc_key()], Password::binary()) -> {ok, key()} | {error, term()}.
-decrypt_keys([#enc_basic_key{version=Version, salt=Salt, iterations=Iterations,
-                             iv=IV, tag=Tag, pubkey_bin=PubKeyBin,
-                             encrypted=Encrypted}], Password) ->
+-spec decrypt_keys([enc_key()], Password::string()) -> {ok, key()} | {error, term()}.
+decrypt_keys([#enc_basic_key{version=Version, salt=Salt, iterations=Iterations, iv=IV, tag=Tag, pubkey_bin=PubKeyBin,
+                                encrypted=Encrypted}], Password) ->
     {ok, AESKey} = pbkdf2:pbkdf2(sha256, Password, Salt, Iterations),
     case decrypt_keymap(AESKey, IV, PubKeyBin, Encrypted, Tag) of
         {error, Error} ->
