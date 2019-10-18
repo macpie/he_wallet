@@ -92,6 +92,7 @@ main(["oui"=Cmd | Args]) ->
     OptSpecs =
         [
          {address, $a, "address", string,           "Address to link"},
+         {payer, $p, "payer", string,               "Transaction payer"},
          {file, $f, "file", {string, "wallet.key"}, "Wallet file to load"},
          {help, $h, "help", undefined,              "Print this help text"}
         ],
@@ -376,14 +377,13 @@ cmd_oui_config(Opts) ->
     {ok, [{password, Password} | Opts]}.
 
 cmd_oui(Opts) ->
-    Password = proplists:get_value(password, Opts),
-    Addresses = [A || {_, A} <- lists:filter(fun(O)-> element(1, O) == address end, Opts)],
     case load_keys(Opts) of
         {error, Filename, Error} ->
             io:format("Failed to read keys ~p: ~p~n", [Filename, Error]),
             halt(1);
         {ok, Keys} ->
             {_, EncKeys} = lists:unzip(Keys),
+            Password = proplists:get_value(password, Opts),
             case decrypt_keys(EncKeys, Password) of
                 {error, {not_enough_shares, S, K}} ->
                     io:format("not enough keyshares; have ~p, need ~b~n", [S, K]),
@@ -392,13 +392,21 @@ cmd_oui(Opts) ->
                     io:format("Not all key shares are congruent with each other\n"),
                     halt(1);
                 {ok, Key} ->
-                    PubKeyBin = libp2p_crypto:pubkey_to_b58(pubkey(Key)),
+                    PubKey = pubkey(Key),
                     SigFun = sigfun(Key),
-                    EncodedTxn = txn:create_oui_txn(PubKeyBin, SigFun, Addresses),
-                    io:format("#############################################~n"),
-                    io:format("Owner will be: ~p~n", [PubKeyBin]),
+                    Addresses = [A || {_, A} <- lists:filter(fun(O)-> element(1, O) == address end, Opts)],
+                    PayerPubKeyBin = case proplists:get_value(payer, Opts) of
+                        undefined -> <<>>;
+                        PayerB58Key -> libp2p_crypto:b58_to_bin(PayerB58Key)
+                    end,
+                    OwnwerPubKeyBin = libp2p_crypto:pubkey_to_bin(PubKey),
+                    EncodedTxn = txn:create_oui_txn(OwnwerPubKeyBin, SigFun, PayerPubKeyBin, Addresses),
+                    OwnerB58 = libp2p_crypto:pubkey_to_b58(PubKey),
+                    PayerB58 = case PayerPubKeyBin of <<>> -> OwnerB58;  P -> libp2p_crypto:bin_to_b58(P) end,
+                    io:format("Owner will be: ~p~n", [OwnerB58]),
+                    io:format("Payer will be: ~p~n", [PayerB58]),
                     io:format("Router addresses assgined: ~p~n", [Addresses]),
-                    io:format("Base64 encoded OUI transation: ~s~n", [erlang:binary_to_list(base64:encode(EncodedTxn))])
+                    io:format("Base64 encoded OUI transation: ~n~s~n", [erlang:binary_to_list(base64:encode(EncodedTxn))])
             end
     end.
 

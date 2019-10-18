@@ -1,15 +1,15 @@
 -module(txn).
 
 -export([
-    create_oui_txn/3, create_oui_txn/5
+    create_oui_txn/4, create_oui_txn/5
 ]).  
 
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-create_oui_txn(Owner, OwnerSigFun, Addresses) ->
-    Txn = oui_txn:new(Owner, Addresses, <<>>, 1, 1),
+create_oui_txn(Owner, OwnerSigFun, Payer, Addresses) ->
+    Txn = oui_txn:new(Owner, Addresses, Payer, 1, 1),
     SignedTxn = oui_txn:sign(Txn, OwnerSigFun),
     oui_txn:encode(SignedTxn).
 
