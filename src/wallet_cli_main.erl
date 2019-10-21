@@ -171,8 +171,8 @@ cmd_version(_) ->
 %%
 
 cmd_create_config(Opts) ->
-    Password = string:strip(string:strip(io:get_line("Password: "), right, $\n), right, $\r),
-    PasswordVerify = string:strip(string:strip(io:get_line("Verify Password: "), right, $\n), right, $\r),
+    Password = get_password("Password: "),
+    PasswordVerify = get_password("Verify Password: "),
     case Password == PasswordVerify of
         false ->
             io:format("Passwords do not match~n"),
@@ -306,7 +306,7 @@ cmd_convert_key(sharded, Opts, #sharded_key{keymap=Keys}) ->
 %%
 
 cmd_verify_config(Opts) ->
-    Password = string:strip(string:strip(io:get_line("Passsword: "), right, $\n), right, $\r),
+    Password = get_password("Passsword: "),
     {ok, [{password, Password} | Opts]}.
 
 cmd_verify(Opts) ->
@@ -373,7 +373,7 @@ cmd_balance(Opts) ->
 %%
 
 cmd_oui_config(Opts) ->
-    Password = string:strip(string:strip(io:get_line("Passsword: "), right, $\n), right, $\r),
+    Password = get_password("Passsword: "),
     {ok, [{password, Password} | Opts]}.
 
 cmd_oui(Opts) ->
@@ -393,7 +393,7 @@ cmd_oui(Opts) ->
                     halt(1);
                 {ok, Key} ->
                     PubKey = pubkey(Key),
-                    SigFun = sigfun(Key),
+                    SigFun = mk_sigfun(Key),
                     Addresses = [A || {_, A} <- lists:filter(fun(O)-> element(1, O) == address end, Opts)],
                     PayerPubKeyBin = case proplists:get_value(payer, Opts) of
                         undefined -> <<>>;
@@ -415,6 +415,8 @@ cmd_oui(Opts) ->
 %% Utilities
 %%
 
+get_password(Prompt) ->
+    string:strip(string:strip(io:get_line(Prompt), right, $\n), right, $\r).
 
 usage(Cmd, OptSpecs) ->
     getopt:usage(OptSpecs, io_lib:format("wallet ~s", [Cmd])).
@@ -465,9 +467,9 @@ key_version(#enc_sharded_key{version=Version}) ->
 key_version(#sharded_key{version=Version}) ->
     {sharded, Version}.
 
-sigfun(#basic_key{keymap=#{secret := PrivKey}}) ->
+mk_sigfun(#basic_key{keymap=#{secret := PrivKey}}) ->
     libp2p_crypto:mk_sig_fun(PrivKey);
-sigfun(#sharded_key{keymap=#{secret := PrivKey}}) ->
+mk_sigfun(#sharded_key{keymap=#{secret := PrivKey}}) ->
     libp2p_crypto:mk_sig_fun(PrivKey).
 
 pubkey(#basic_key{ keymap=#{ public := PubKey}}) ->

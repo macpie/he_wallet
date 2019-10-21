@@ -49,7 +49,6 @@ sign_payer(Txn, SigFun) ->
     EncodedTxn = helium_txn_oui_v1_pb:encode_msg(BaseTxn),
     Txn#helium_txn_oui_v1_pb{payer_signature=SigFun(EncodedTxn)}.
 
-
 -spec encode(txn_oui()) -> binary().
 encode(Txn) ->
     helium_txn_oui_v1_pb:encode_msg(Txn).
