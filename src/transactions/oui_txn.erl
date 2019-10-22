@@ -5,9 +5,7 @@
 -export([
     new/4, new/5,
     sign/2,
-    sign_payer/2,
-    encode/1,
-    decode/1
+    sign_payer/2
 ]).  
 
 -type txn_oui() :: #helium_txn_oui_v1_pb{}.
@@ -48,11 +46,3 @@ sign_payer(Txn, SigFun) ->
     BaseTxn = Txn#helium_txn_oui_v1_pb{owner_signature= <<>>, payer_signature= <<>>},
     EncodedTxn = helium_txn_oui_v1_pb:encode_msg(BaseTxn),
     Txn#helium_txn_oui_v1_pb{payer_signature=SigFun(EncodedTxn)}.
-
--spec encode(txn_oui()) -> binary().
-encode(Txn) ->
-    helium_txn_oui_v1_pb:encode_msg(Txn).
-
--spec decode(binary()) -> txn_oui().
-decode(BinTxn) ->
-    helium_txn_oui_v1_pb:decode_msg(BinTxn, helium_txn_oui_v1_pb).
