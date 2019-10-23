@@ -15,12 +15,12 @@ deserialize(Bin) ->
     unwrap_txn(helium_txn_pb:decode_msg(Bin, helium_txn_pb)).
 
 create_oui_txn(Owner, OwnerSigFun, Payer, Addresses) ->
-    Txn = oui_txn:new(Owner, Addresses, Payer, 1, 1),
+    Txn = oui_txn:new(Owner, Addresses, Payer, 1, 0),
     SignedTxn = oui_txn:sign(Txn, OwnerSigFun),
     ?MODULE:serialize(SignedTxn).
 
 create_oui_txn(Owner, OwnerSigFun, Payer, PayerSigFun, Addresses) ->
-    Txn = oui_txn:new(Owner, Addresses, Payer, 1, 1),
+    Txn = oui_txn:new(Owner, Addresses, Payer, 1, 0),
     SignedTxn0 = oui_txn:sign(Txn, OwnerSigFun),
     SignedTxn1 = oui_txn:sign_payer(SignedTxn0, PayerSigFun),
     ?MODULE:serialize(SignedTxn1).
