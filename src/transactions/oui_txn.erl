@@ -3,7 +3,7 @@
 -include_lib("helium_proto/src/pb/helium_txn_oui_v1_pb.hrl").
 
 -export([
-    new/4, new/5,
+    new/5, new/6,
     sign/2,
     sign_payer/2
 ]).  
@@ -11,11 +11,12 @@
 -type txn_oui() :: #helium_txn_oui_v1_pb{}.
 -export_type([txn_oui/0]).
 
--spec new(libp2p_crypto:pubkey_bin(), [binary()], non_neg_integer(), non_neg_integer()) -> txn_oui().
-new(Owner, Addresses, StakingFee, Fee) ->
+-spec new(libp2p_crypto:pubkey_bin(), [binary()], non_neg_integer(), non_neg_integer(), non_neg_integer()) -> txn_oui().
+new(Owner, Addresses, OUI, StakingFee, Fee) ->
     #helium_txn_oui_v1_pb{
         owner=Owner,
         addresses=Addresses,
+        oui=OUI,
         payer= <<>>,
         staking_fee=StakingFee,
         fee=Fee,
@@ -23,11 +24,12 @@ new(Owner, Addresses, StakingFee, Fee) ->
         payer_signature= <<>>
     }.
 
--spec new(libp2p_crypto:pubkey_bin(), [binary()], libp2p_crypto:pubkey_bin(), non_neg_integer(), non_neg_integer()) -> txn_oui().
-new(Owner, Addresses, Payer, StakingFee, Fee) ->
+-spec new(libp2p_crypto:pubkey_bin(), [binary()], non_neg_integer(), libp2p_crypto:pubkey_bin(), non_neg_integer(), non_neg_integer()) -> txn_oui().
+new(Owner, Addresses, OUI, Payer, StakingFee, Fee) ->
     #helium_txn_oui_v1_pb{
         owner=Owner,
         addresses=Addresses,
+        oui=OUI,
         payer=Payer,
         staking_fee=StakingFee,
         fee=Fee,
