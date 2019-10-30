@@ -86,7 +86,7 @@ main(["balance"=Cmd | Args]) ->
 main(["version"=Cmd | Args]) ->
     OptSpecs = help_opt_specs(),
     handle_cmd(OptSpecs, Cmd, Args, fun cmd_version/1);
-main(["oui"=Cmd | Args]) ->
+main(["txn", "oui"| Args]) ->
     AppDir = filename:dirname(filename:dirname(code:where_is_file("wallet"))),
     os:putenv("NIF_PATH", AppDir),
     OptSpecs =
@@ -97,7 +97,25 @@ main(["oui"=Cmd | Args]) ->
          {oui, $o, "oui", integer,                  "OUI"},
          {help, $h, "help", undefined,              "Print this help text"}
         ],
-    handle_cmd(OptSpecs, Cmd, Args, fun cmd_oui_config/1, fun cmd_oui/1);
+    handle_cmd(OptSpecs, "txn oui", Args, fun cmd_txn_config/1, fun cmd_oui/1);
+main(["txn", "security_exchange"| Args]) ->
+    AppDir = filename:dirname(filename:dirname(code:where_is_file("wallet"))),
+    os:putenv("NIF_PATH", AppDir),
+    OptSpecs =
+        [
+         {payee, $p, "payee", string,               "Transaction payee"},
+         {nonce, $n, "nonce", integer,               "Transaction nonce"},
+         {amount, $a, "amount", integer,            "Transaction Amount"},
+         {file, $f, "file", {string, "wallet.key"}, "Wallet file to load"},
+         {help, $h, "help", undefined,              "Print this help text"}
+        ],
+    handle_cmd(OptSpecs, "txn security_exchange", Args, fun cmd_txn_config/1, fun cmd_security_exchange/1);
+main(["txn" | _Args]) ->
+    OptSpecs = [
+        {oui,  undefined, undefined, undefined, "Create OUI transaction"},
+        {security_exchange,  undefined, undefined, undefined, "Create security_exchange transaction"}
+    ],
+    usage("txn", OptSpecs);
 main(_) ->
     OptSpecs =
         [
@@ -107,7 +125,7 @@ main(_) ->
          {verify, undefined, undefined, undefined, "Verify an ecnrypted wallet"},
          {info,   undefined, undefined, undefined, "Get public wallet address"},
          {balance,undefined, undefined, undefined, "Get balance for a wallet or a given address"},
-         {oui    ,undefined, undefined, undefined, "Create and sign an OUI transation"}
+         {txn    ,undefined, undefined, undefined, "Create and sign transations"}
         ],
     usage("", OptSpecs).
 
@@ -373,7 +391,7 @@ cmd_balance(Opts) ->
 %% Transactions
 %%
 
-cmd_oui_config(Opts) ->
+cmd_txn_config(Opts) ->
     Password = get_password("Passsword: "),
     {ok, [{password, Password} | Opts]}.
 
@@ -416,6 +434,56 @@ cmd_oui(Opts) ->
                     io:format("Owner will be: ~p~n", [OwnerB58]),
                     io:format("Payer will be: ~p~n", [PayerB58]),
                     io:format("Router addresses assgined: ~p~n", [Addresses]),
+                    io:format("Base64 encoded OUI transation: ~n~s~n", [erlang:binary_to_list(base64:encode(EncodedTxn))])
+            end
+    end.
+
+cmd_security_exchange(Opts) ->
+    case proplists:get_value(nonce, Opts) of
+        undefined ->
+            io:format("Please select an nonce with -p~n", []),
+            halt(1);
+        _ -> ok
+    end,
+    case proplists:get_value(payee, Opts) of
+        undefined ->
+            io:format("Please select an payee with -e~n", []),
+            halt(1);
+        _ -> ok
+    end,
+    case proplists:get_value(amount, Opts) of
+        undefined ->
+            io:format("Please select an amount with -a~n", []),
+            halt(1);
+        _ -> ok
+    end,
+    case load_keys(Opts) of
+        {error, Filename, Error} ->
+            io:format("Failed to read keys ~p: ~p~n", [Filename, Error]),
+            halt(1);
+        {ok, Keys} ->
+            {_, EncKeys} = lists:unzip(Keys),
+            Password = proplists:get_value(password, Opts),
+            case decrypt_keys(EncKeys, Password) of
+                {error, {not_enough_shares, S, K}} ->
+                    io:format("not enough keyshares; have ~p, need ~b~n", [S, K]),
+                    halt(1);
+                {error, mismatched_shares} ->
+                    io:format("Not all key shares are congruent with each other\n"),
+                    halt(1);
+                {ok, Key} ->
+                    PubKey = pubkey(Key),
+                    SigFun = mk_sigfun(Key),
+                    PayerPubKeyBin = libp2p_crypto:pubkey_to_bin(PubKey),
+                    PayeePubKeyBin = libp2p_crypto:b58_to_bin(proplists:get_value(payee, Opts)),
+                    Amount = proplists:get_value(amount, Opts),
+                    Nonce = proplists:get_value(nonce, Opts),
+                    EncodedTxn = txn:create_security_exchange_txn(PayerPubKeyBin, SigFun, PayeePubKeyBin, Amount, Nonce),
+                    PayerB58 = libp2p_crypto:pubkey_to_b58(PubKey),
+                    io:format("Payer will be: ~p~n", [PayerB58]),
+                    io:format("Payee will be: ~p~n", [proplists:get_value(payee, Opts)]),
+                    io:format("Amount will be: ~p~n", [Amount]),
+                    io:format("Nonce will be: ~p~n", [Nonce]),
                     io:format("Base64 encoded OUI transation: ~n~s~n", [erlang:binary_to_list(base64:encode(EncodedTxn))])
             end
     end.

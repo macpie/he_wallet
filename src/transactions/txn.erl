@@ -4,7 +4,8 @@
 
 -export([
     serialize/1, deserialize/1,
-    create_oui_txn/5, create_oui_txn/6
+    create_oui_txn/5, create_oui_txn/6,
+    create_security_exchange_txn/5
 ]).
 
 
@@ -24,6 +25,11 @@ create_oui_txn(Owner, OwnerSigFun, Payer, PayerSigFun, Addresses, OUI) ->
     SignedTxn0 = oui_txn:sign(Txn, OwnerSigFun),
     SignedTxn1 = oui_txn:sign_payer(SignedTxn0, PayerSigFun),
     ?MODULE:serialize(SignedTxn1).
+
+create_security_exchange_txn(Payer, PayerSigFun, Payee, Amount, Nonce) ->
+    Txn = security_exchange_txn:new(Payer, Payee, Amount, 0, Nonce),
+    SignedTxn = security_exchange_txn:sign(Txn, PayerSigFun),
+    ?MODULE:serialize(SignedTxn).
 
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
