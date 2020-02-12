@@ -13,7 +13,7 @@
  {<<"getopt">>,{pkg,<<"getopt">>,<<"1.0.1">>},0},
  {<<"helium_proto">>,
   {git,"https://github.com/helium/proto.git",
-       {ref,"ef3afe35f7699c087e738b2779ca9320d954bb6f"}},
+       {ref,"940d082796a1b1680162f4ad192b09199ea579a9"}},
   0},
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.10.0">>},0},
  {<<"libp2p_crypto">>,{pkg,<<"libp2p_crypto">>,<<"1.0.1">>},0},
